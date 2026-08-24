@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   controlplane-proxy:
@@ -28,7 +28,7 @@ services:
       - clickhouse_data:/var/lib/clickhouse
       - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
       interval: 5s
       timeout: 3s
       retries: 5

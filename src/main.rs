@@ -10,17 +10,10 @@
 //! - CPU-intensive FFI ML pre-flight requests execute on dedicated `tokio::task::spawn_blocking` worker pools
 //!   to guarantee sub-5ms network latency under concurrent spikes.
 
-use controlplane_ai::{api, config::Config, engine::OnnxPreflightEngine, telemetry::ClickHouseWorker, Result};
+use controlplane_ai::{api, config::Config, engine::OnnxPreflightEngine, telemetry::ClickHouseWorker, AppState, Result};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::{info, error};
-
-/// Global Application Shared State shared across Axum request handler threads.
-pub struct AppState {
-    pub config: Config,
-    pub classifier: Arc<OnnxPreflightEngine>,
-    pub clickhouse_worker: Arc<ClickHouseWorker>,
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {

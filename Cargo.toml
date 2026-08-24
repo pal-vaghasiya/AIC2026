@@ -25,7 +25,7 @@ bytes = "1.5"
 ort = { version = "2.0.0-rc.2", features = ["load-dynamic", "cuda"] }
 
 # Telemetry & Observability
-clickhouse = { version = "0.11", features = ["serde"] }
+clickhouse = "0.11"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 metrics = "0.21"

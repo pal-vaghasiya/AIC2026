@@ -14,7 +14,7 @@ use crate::{
     api::handlers::ChatCompletionRequest,
     engine::slm_validator::SlmValidatorEngine,
     error::{ControlPlaneError, Result},
-    main::AppState,
+    AppState,
 };
 use axum::response::sse::Event;
 use bytes::Bytes;

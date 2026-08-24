@@ -21,3 +21,9 @@ pub mod telemetry;
 
 pub use config::Config;
 pub use error::{ControlPlaneError, Result};
+
+pub struct AppState {
+	pub config: Config,
+	pub classifier: std::sync::Arc<engine::OnnxPreflightEngine>,
+	pub clickhouse_worker: std::sync::Arc<telemetry::ClickHouseWorker>,
+}

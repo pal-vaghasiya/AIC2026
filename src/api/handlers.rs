@@ -10,7 +10,7 @@
 use crate::{
     engine::{circuit_breaker::StreamingCircuitBreaker, router::SemanticTaskRouter},
     error::{ControlPlaneError, Result},
-    main::AppState,
+    AppState,
     telemetry::clickhouse::AuditLogEntry,
 };
 use axum::{

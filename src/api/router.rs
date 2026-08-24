@@ -4,7 +4,7 @@
 //! Constructs the primary Axum `Router` tree, mapping `/v1/chat/completions`, `/health`, and `/metrics` routes
 //! to their respective handlers and applying Tower middleware stack (CORS, Trace, Rate Limiting, Request ID injection).
 
-use crate::{api::handlers, main::AppState};
+use crate::{api::handlers, AppState};
 use axum::{
     routing::{get, post},
     Router,
