@@ -1,0 +1,49 @@
+[package]
+name = "controlplane-ai"
+version = "0.1.0"
+edition = "2021"
+authors = ["ControlPlane.ai Team <engineering@controlplane.ai>"]
+description = "High-Throughput Bidirectional AI Proxy & Governance Gateway in Rust and C++"
+readme = "README.md"
+
+[dependencies]
+# Web Framework & Async Runtime
+axum = { version = "0.7", features = ["macros", "tracing"] }
+tokio = { version = "1.36", features = ["full"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "trace", "timeout"] }
+futures-util = "0.3"
+async-trait = "0.1"
+
+# Serialization & Data Formats
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bytes = "1.5"
+
+# ML FFI & ONNX Bridge
+# 'ort' crate exposes native C++ ONNX Runtime bindings for zero-copy tensor pass-through
+ort = { version = "2.0.0-rc.2", features = ["load-dynamic", "cuda"] }
+
+# Telemetry & Observability
+clickhouse = { version = "0.11", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
+
+# Utilities & Error Handling
+thiserror = "1.0"
+anyhow = "1.0"
+config = "0.14"
+reqwest = { version = "0.11", features = ["json", "stream"] }
+uuid = { version = "1.7", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[build-dependencies]
+cxx-build = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
