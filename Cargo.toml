@@ -19,6 +19,8 @@ async-trait = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 bytes = "1.5"
+ndarray = "0.17"
+tokenizers = "0.21"
 
 # ML FFI & ONNX Bridge
 # 'ort' crate exposes native C++ ONNX Runtime bindings for zero-copy tensor pass-through
