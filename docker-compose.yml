@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  controlplane-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    env_file:
+      - .env
+    environment:
+      - RUST_LOG=info
+      - CP_SERVER__PORT=8080
+      - CP_CLICKHOUSE__URL=http://clickhouse:8123
+      - CP_UPSTREAM__API_KEY=${CP_UPSTREAM__API_KEY}
+      - CP_ML_ENGINE__ONNX_MODEL_PATH=/app/models/deberta_injection.onnx
+      - CP_ML_ENGINE__SLM_GGUF_PATH=/app/models/llama_validator.gguf
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8-alpine
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  clickhouse_data:
