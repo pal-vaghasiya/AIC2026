@@ -2,15 +2,11 @@
 //!
 //! # Responsibilities
 //! Implementation of Axum request handlers for chat completions, health check, and Prometheus metrics.
-//!
-//! # Latency & Async Isolation Strategy
-//! - `chat_completions_handler`: Parses incoming JSON payload, dispatches ML Pre-Flight classification to a CPU pool via `spawn_blocking` to protect the main Tokio I/O loop (<5ms SLA), forwards benign queries to upstream model providers, and connects the streaming SSE circuit breaker.
-//! - Non-blocking SSE stream reads output tokens, runs localized GGUF validation, and truncates streams if guardrails trip.
 
 use crate::{
     engine::{circuit_breaker::StreamingCircuitBreaker, router::SemanticTaskRouter},
     error::{ControlPlaneError, Result},
-    main::AppState,
+    AppState,
     telemetry::clickhouse::AuditLogEntry,
 };
 use axum::{
@@ -18,13 +14,12 @@ use axum::{
     response::{IntoResponse, Response, Sse},
     Json,
 };
-use bytes::Bytes;
-use futures_util::stream::Stream;
+use futures_util::stream::StreamExt;
 use serde::{Deserialize, Serialize};
-use std::{convert::Infallible, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 use tracing::{info, warn};
 
-/// Request Payload schema matching OpenAI Chat Completions API.
+/// Request Payload schema matching Gemini (OpenAI Compatibility) Chat Completions API.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ChatCompletionRequest {
     pub model: String,
@@ -42,13 +37,6 @@ pub struct ChatMessage {
 }
 
 /// Primary Handler for `/v1/chat/completions` requests.
-///
-/// # Control Flow:
-/// 1. Record incoming timestamp for end-to-end latency calculation.
-/// 2. Offload prompt security check (PII / Injection) to C++ ONNX engine (`spawn_blocking`).
-/// 3. If pre-flight risk score > threshold: Abort request immediately with 403 Forbidden & log audit event.
-/// 4. If benign: Route prompt semantically to optimal backend model via `SemanticTaskRouter`.
-/// 5. Stream response via SSE or return full JSON payload while running `StreamingCircuitBreaker`.
 pub async fn chat_completions_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<ChatCompletionRequest>,
@@ -97,31 +85,81 @@ pub async fn chat_completions_handler(
         });
     }
 
-    // Determine target backend model using Semantic Intent Router
-    let _routed_model = SemanticTaskRouter::route_intent(&payload.messages);
+    // Determine target backend model using Semantic Intent Router and map to Gemini
+    let routed_model = SemanticTaskRouter::route_intent(&payload.messages);
+    let target_model = match routed_model.as_str() {
+        "slm-fast-1b" => "gemini-3.6-flash",
+        "gpt-4o-frontier" => "gemini-3.6-pro",
+        _ => "gemini-3.6-flash",
+    };
+
+    let mut proxy_payload = payload.clone();
+    proxy_payload.model = target_model.to_string();
+
+    let upstream_url = if state.config.upstream.default_target_url.ends_with('/') {
+        format!("{}chat/completions", state.config.upstream.default_target_url)
+    } else {
+        format!("{}/chat/completions", state.config.upstream.default_target_url)
+    };
+
+    let api_key = std::env::var("CP_UPSTREAM__API_KEY").unwrap_or_else(|_| state.config.upstream.api_key.clone());
+    let auth_header = format!("Bearer {}", api_key);
+    tracing::info!("Sending request to {} with Auth: {}", upstream_url, auth_header);
+
+    // Forward request to Upstream Gemini Endpoint
+    let response = state.http_client.post(&upstream_url)
+        .header("Authorization", auth_header)
+        .json(&proxy_payload)
+        .send()
+        .await
+        .map_err(|e| ControlPlaneError::UpstreamProviderError {
+            status: 502,
+            message: format!("Upstream connection failed: {}", e),
+        })?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let err_text = response.text().await.unwrap_or_default();
+        return Err(ControlPlaneError::UpstreamProviderError {
+            status: status.as_u16(),
+            message: err_text,
+        });
+    }
 
     if payload.stream {
         // Construct Non-Blocking SSE Circuit Breaker Stream
         let circuit_breaker = StreamingCircuitBreaker::new(&state.config.ml_engine.slm_gguf_path)?;
-        let sse_stream = circuit_breaker.wrap_stream(payload, state.clone()).await?;
+        let byte_stream = response.bytes_stream();
+        
+        let sse_stream = circuit_breaker.wrap_stream(
+            byte_stream,
+            state.clone(),
+            target_model.to_string(),
+            prompt_text.len(),
+            start_time,
+        ).await?;
 
         Ok(Sse::new(sse_stream).into_response())
     } else {
-        // Forward request directly to Upstream LLM and await response
-        let response_body = serde_json::json!({
-            "id": format!("chatcmpl-{}", uuid::Uuid::new_v4()),
-            "object": "chat.completion",
-            "created": chrono::Utc::now().timestamp(),
-            "model": payload.model,
-            "choices": [{
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": "ControlPlane.ai Firewall verified request: Safe payload delivered."
-                },
-                "finish_reason": "stop"
-            }]
-        });
+        let response_body: serde_json::Value = response.json().await.map_err(|e| {
+            ControlPlaneError::InternalError(format!("Failed to parse upstream response: {}", e))
+        })?;
+
+        // Log completed event to ClickHouse
+        let total_latency = start_time.elapsed().as_secs_f64() * 1000.0;
+        let completion_text = response_body["choices"][0]["message"]["content"].as_str().unwrap_or("");
+        
+        state.clickhouse_worker.log_event(AuditLogEntry {
+            request_id: uuid::Uuid::new_v4().to_string(),
+            timestamp: chrono::Utc::now(),
+            model: target_model.to_string(),
+            prompt_tokens: prompt_text.len() as u32 / 4,
+            completion_tokens: completion_text.len() as u32 / 4,
+            preflight_latency_ms: preflight_latency,
+            total_latency_ms: total_latency,
+            risk_score: preflight_result.risk_score,
+            action_taken: "ALLOWED".to_string(),
+        }).await;
 
         Ok(Json(response_body).into_response())
     }

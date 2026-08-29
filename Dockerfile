@@ -22,14 +22,15 @@ RUN wget -q https://github.com/microsoft/onnxruntime/releases/download/v1.17.1/o
     && ldconfig
 
 # STAGE 2: Rust Gateway Compilation
-FROM rust:1.76-slim-bookworm AS rust-builder
+FROM rust:1.88-slim-bookworm AS rust-builder
 COPY --from=native-builder /usr/local /usr/local
 
-RUN apt-get update && apt-get install -y build-essential cmake clang && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y build-essential cmake clang pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
 COPY CMakeLists.txt ./
+COPY build.rs ./
 COPY src/ ./src/
 COPY cpp/ ./cpp/
 
@@ -49,6 +50,7 @@ RUN ldconfig
 
 WORKDIR /app
 COPY --from=rust-builder /app/target/release/controlplane-ai /app/controlplane-ai
+COPY --from=rust-builder /app/target/release/test_postflight /app/test_postflight
 COPY models/ /app/models/
 
 EXPOSE 8080 9090

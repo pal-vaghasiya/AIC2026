@@ -62,7 +62,7 @@ impl Config {
             .set_default("ml_engine.preflight_threshold", 0.85)?
             .set_default("ml_engine.thread_pool_size", 4)?
             .set_default("ml_engine.enable_cuda", false)?
-            .set_default("upstream.default_target_url", "https://api.openai.com")?
+            .set_default("upstream.default_target_url", "https://generativelanguage.googleapis.com/v1beta/openai/")?
             .set_default("upstream.api_key", "")?
             .set_default("upstream.max_retries", 3)?
             .set_default("clickhouse.url", "http://localhost:8123")?

@@ -3,16 +3,13 @@
 //! # Responsibilities
 //! Buffers audit records (`AuditLogEntry`) in an in-memory lock-free channel (`tokio::sync::mpsc`)
 //! and periodically flushes batches to ClickHouse via HTTP interface.
-//!
-//! # Zero-Impact Latency Design
-//! Log emissions are completely decoupled from request handlers. Handlers push entries into an unbounded/large bounded
-//! mpsc sender, returning immediately without awaiting database I/O.
 
 use crate::error::{ControlPlaneError, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tracing::{error, info};
+use std::time::{Duration, Instant};
 
 /// Schema matching ClickHouse `audit_logs` MergeTree table.
 #[derive(Debug, Clone, Serialize, Deserialize, clickhouse::Row)]
@@ -40,15 +37,56 @@ impl ClickHouseWorker {
         let table = table.to_string();
 
         tokio::spawn(async move {
+            let client = clickhouse::Client::default().with_url(&ch_url);
             let mut batch = Vec::with_capacity(500);
+            let mut last_flush = Instant::now();
 
-            while let Some(entry) = rx.recv().await {
-                batch.push(entry);
+            loop {
+                // Read from receiver with a timeout so we can flush partial batches
+                let received = tokio::time::timeout(
+                    Duration::from_millis(100),
+                    rx.recv()
+                ).await;
 
-                if batch.len() >= 500 {
+                match received {
+                    Ok(Some(entry)) => {
+                        batch.push(entry);
+                    }
+                    Ok(None) => {
+                        // Channel closed, terminate worker
+                        break;
+                    }
+                    Err(_) => {
+                        // Timeout reached, proceed to flush check
+                    }
+                }
+
+                let now = Instant::now();
+                if !batch.is_empty() && (batch.len() >= 500 || now.duration_since(last_flush).as_millis() >= 1000) {
                     info!(count = batch.len(), target_table = %table, "Flushing audit batch to ClickHouse");
-                    // Execute batch insert to ClickHouse HTTP endpoint
+                    
+                    match client.insert(&table) {
+                        Ok(mut inserter) => {
+                            let mut success = true;
+                            for entry in &batch {
+                                if let Err(e) = inserter.write(entry).await {
+                                    error!(error = %e, "Failed to write row to ClickHouse batch");
+                                    success = false;
+                                    break;
+                                }
+                            }
+                            if success {
+                                if let Err(e) = inserter.end().await {
+                                    error!(error = %e, "Failed to commit batch to ClickHouse");
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!(error = %e, "Failed to initialize ClickHouse inserter");
+                        }
+                    }
                     batch.clear();
+                    last_flush = now;
                 }
             }
         });

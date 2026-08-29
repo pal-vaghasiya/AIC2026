@@ -1,0 +1,50 @@
+# ========================================================
+# ControlPlane.ai Gateway - Git Ignore Rules
+# ========================================================
+
+# 1. Critical Secrets & Environment (DO NOT PUSH)
+.env
+.env.production
+.env.development
+*.pem
+*.key
+*.cert
+
+# 2. Machine Learning Models (DO NOT PUSH)
+# These files exceed GitHub's 100MB limit. Use Git LFS or a model registry (S3, HuggingFace)
+models/*.onnx
+models/*.gguf
+models/*.bin
+models/*.pt
+
+# 3. Rust & Cargo Build Artifacts
+target/
+**/*.rs.bk
+Cargo.lock
+
+# 4. C++ Build Artifacts
+cpp/build/
+cpp/CMakeCache.txt
+cpp/CMakeFiles/
+cpp/Makefile
+cpp/cmake_install.cmake
+
+# 5. Python / Evaluation Cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+venv/
+.venv/
+env/
+
+# 6. Database / Docker Volumes
+clickhouse/
+data/
+
+# 7. OS & IDE Data
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo

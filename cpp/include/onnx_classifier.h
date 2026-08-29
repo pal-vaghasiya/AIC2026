@@ -37,7 +37,7 @@ public:
      * @param text Raw prompt string view.
      * @return PreflightResult populated with confidence scores and security classification.
      */
-    PreflightResult Classify(const char* text_ptr, size_t length);
+    PreflightResult Classify(const int64_t* input_ids, size_t length);
 
 private:
     Ort::Env env_;

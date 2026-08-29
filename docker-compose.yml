@@ -8,10 +8,13 @@ services:
     ports:
       - "8080:8080"
       - "9090:9090"
+    env_file:
+      - .env
     environment:
       - RUST_LOG=info
       - CP_SERVER__PORT=8080
       - CP_CLICKHOUSE__URL=http://clickhouse:8123
+      - CP_UPSTREAM__API_KEY=${CP_UPSTREAM__API_KEY}
       - CP_ML_ENGINE__ONNX_MODEL_PATH=/app/models/deberta_injection.onnx
       - CP_ML_ENGINE__SLM_GGUF_PATH=/app/models/llama_validator.gguf
     depends_on:
@@ -28,7 +31,7 @@ services:
       - clickhouse_data:/var/lib/clickhouse
       - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
       interval: 5s
       timeout: 3s
       retries: 5

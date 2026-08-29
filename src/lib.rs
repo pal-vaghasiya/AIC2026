@@ -21,3 +21,11 @@ pub mod telemetry;
 
 pub use config::Config;
 pub use error::{ControlPlaneError, Result};
+
+/// Global Application Shared State shared across Axum request handler threads.
+pub struct AppState {
+    pub config: Config,
+    pub classifier: std::sync::Arc<engine::onnx_bridge::OnnxPreflightEngine>,
+    pub clickhouse_worker: std::sync::Arc<telemetry::clickhouse::ClickHouseWorker>,
+    pub http_client: reqwest::Client,
+}

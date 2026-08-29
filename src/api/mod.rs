@@ -1,7 +1,7 @@
 //! API Gateway Subsystem
 //!
 //! # Responsibilities
-//! Exposes HTTP/1.1 and HTTP/2 endpoints compatible with OpenAI `/v1/chat/completions` API specification.
+//! Exposes HTTP/1.1 and HTTP/2 endpoints compatible with Gemini `/v1/chat/completions` (OpenAI compatibility) API specification.
 //! Manages request lifecycle:
 //! 1. Authentication & Rate-Limiting middleware
 //! 2. Zero-Copy Pre-Flight Prompt Security Inspection

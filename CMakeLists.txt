@@ -43,6 +43,9 @@ set(CPP_SOURCES
     cpp/src/ffi_bridge.cpp
 )
 
+# Find system thread libraries (required for Threads::Threads)
+find_package(Threads REQUIRED)
+
 # Build Native Static Library for Rust FFI Linking
 add_library(controlplane_cpp STATIC ${CPP_SOURCES})
 

@@ -11,16 +11,16 @@ pub struct MetricsCollector;
 impl MetricsCollector {
     /// Records pre-flight classification latency in milliseconds.
     pub fn observe_preflight_latency(latency_ms: f64) {
-        histogram!("controlplane_preflight_latency_ms").record(latency_ms);
+        histogram!("controlplane_preflight_latency_ms", latency_ms);
     }
 
     /// Increments security policy block counter.
     pub fn increment_blocked_requests(reason: &str) {
-        counter!("controlplane_blocked_requests_total", "reason" => reason.to_string()).increment(1);
+        counter!("controlplane_blocked_requests_total", 1, "reason" => reason.to_string());
     }
 
     /// Increments stream sever count when circuit breaker triggers.
     pub fn increment_stream_severs() {
-        counter!("controlplane_stream_severs_total").increment(1);
+        counter!("controlplane_stream_severs_total", 1);
     }
 }

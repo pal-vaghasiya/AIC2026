@@ -27,7 +27,7 @@ void destroy_onnx_classifier(void* handle) {
     }
 }
 
-controlplane::PreflightResult classify_prompt_ffi(void* handle, const char* text_ptr, size_t length) {
+controlplane::PreflightResult classify_prompt_ffi(void* handle, const int64_t* input_ids, size_t length) {
     if (!handle) {
         controlplane::PreflightResult err_res{};
         err_res.is_injection = false;
@@ -37,7 +37,7 @@ controlplane::PreflightResult classify_prompt_ffi(void* handle, const char* text
     }
 
     auto* classifier = static_cast<controlplane::ONNXClassifier*>(handle);
-    return classifier->Classify(text_ptr, length);
+    return classifier->Classify(input_ids, length);
 }
 
 void* create_llama_validator(const char* model_path) {

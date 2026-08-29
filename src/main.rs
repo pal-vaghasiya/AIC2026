@@ -15,12 +15,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::{info, error};
 
-/// Global Application Shared State shared across Axum request handler threads.
-pub struct AppState {
-    pub config: Config,
-    pub classifier: Arc<OnnxPreflightEngine>,
-    pub clickhouse_worker: Arc<ClickHouseWorker>,
-}
+use controlplane_ai::AppState;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -30,11 +25,26 @@ async fn main() -> Result<()> {
         .json()
         .init();
 
+    for (k, v) in std::env::vars() {
+        if k.starts_with("CP_") {
+            info!("ENV VAR: {} = {}", k, v);
+        }
+    }
+
+    // Load .env file if present
+    dotenvy::dotenv().ok();
+
     info!("Initializing ControlPlane.ai High-Throughput AI Proxy Gateway...");
 
     // 2. Load runtime configuration from environment variables and config files
     let config = Config::load().expect("Failed to load ControlPlane.ai configuration settings");
     info!(server_port = config.server.port, "Configuration loaded successfully");
+
+    // Create pooled HTTP client
+    let http_client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(config.server.timeout_ms))
+        .build()
+        .expect("Failed to initialize pooled HTTP client");
 
     // 3. Initialize native C++ ONNX Pre-Flight Classifier Engine via zero-copy 'ort' FFI bindings
     let classifier = Arc::new(
@@ -53,6 +63,7 @@ async fn main() -> Result<()> {
         config: config.clone(),
         classifier,
         clickhouse_worker,
+        http_client,
     });
 
     // 5. Construct Axum Router with middlewares (tracing, CORS, rate-limiting)
