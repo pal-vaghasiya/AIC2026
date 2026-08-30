@@ -26,6 +26,19 @@ ControlPlane.ai has been heavily stress-tested using four specialized asynchrono
 
 ---
 
+## 🥊 State-of-the-Art (SOTA) Competitive Analysis
+
+While there are many AI gateways and security guardrails on the market, `ControlPlane.ai` bridges the gap between infrastructure speed and linguistic security.
+
+| Category | SOTA Alternatives | The ControlPlane.ai Advantage |
+| :--- | :--- | :--- |
+| **Architectural Speed** | NVIDIA NeMo Guardrails, LlamaGuard | Traditional Python/LLM-as-a-judge approaches add 500ms+ latency. ControlPlane's compiled ONNX/C++ `DeBERTa-v3` classifier processes injections in **< 4ms** via zero-copy FFI pointers. |
+| **Mid-Flight Streaming DLP** | Cloudflare AI Gateway, Portkey | Standard proxies act as "dumb pipes" for streaming (SSE). ControlPlane runs a parallel **Shadow Circuit Breaker** using `llama.cpp` to physically sever streams mid-sentence if hallucinations or PII are detected. |
+| **Precision (False Positives)** | Lakera Guard, ProtectAI | Commercial APIs often prioritize recall (blocking everything), ruining user experience. ControlPlane is optimized for **1.00 Precision**, ensuring safe traffic is never accidentally blocked, even when only 4% of traffic is malicious. |
+| **Telemetry Overhead** | Helicone, Langfuse | Built directly into the Rust proxy engine, our lock-free asynchronous ClickHouse batch worker ensures real-time SOC2 audit logging without bottlenecking the main HTTP event loop. |
+
+---
+
 ## 🏛️ High-Level System Architecture
 
 ```
